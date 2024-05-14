@@ -4,31 +4,6 @@
 #include <unordered_map>
 #include <random>
 
-class Scheduler
-{
-public:
-    static std::string getWorkerId(Task task)
-    {
-        // Implement your logic here
-        return "Worker1";
-    }
-};
-
-class Registry
-{
-public:
-    Registry() {}
-    static Registry getInstance()
-    {
-        static Registry instance;
-        return instance;
-    }
-    void sentTask(Task task)
-    {
-        // send the task to the worker
-    }
-};
-
 class Task
 {
 public:
@@ -64,11 +39,10 @@ public:
         clientID = "";
         priority = 0;
         capacity = 0;
-        commands = {};
         errorCode = 0;
     }
 
-    Task(std::string clientID, int priority, int capacity, std::vector<std::string> commands, std::string errorCode)
+    Task(std::string clientID, int priority, int capacity, std::vector<std::string> commands, int errorCode)
     {
         this->taskID = generateId();
         this->taskStatus = "Intiated";
@@ -77,9 +51,39 @@ public:
         this->priority = priority;
         this->capacity = capacity;
         this->commands = commands;
-        this->errorCode = 0;
+        this->errorCode = errorCode;
     }
 };
+
+
+class Scheduler
+{
+public:
+    static std::string getWorkerId(Task task)
+    {
+        // Implement your logic here
+        return "Worker1";
+    }
+    
+
+};
+
+class Registry
+{
+public:
+    Registry() {}
+    static Registry getInstance()
+    {
+        static Registry instance;
+        return instance;
+    }
+    void sentTask(Task task)
+    {
+        // send the task to the worker
+    }
+};
+
+
 
 class HeartBeat
 {
@@ -108,19 +112,21 @@ public:
     // TODO : if scheduler is not responsing then at least store the task and periodically try to reassign the task using scheduler
     // TODO : (TIMEOUT SCENARIO) periodically check the status of the task and if it is not completed then reassign the task to the worker
 
-    void assignWorker(Task task)
+    void assignWorker(Task& task)
     {
         std::string workerId = Scheduler::getWorkerId(task);
         task.workerID = workerId;
         storage[task.taskID] = task;
     }
 
-    void createTask(std::string clientID, int priority, int capacity, std::vector<std::string> commands, std::string errorCode)
+    std::string createTask(std::string clientID, int priority, int capacity, std::vector<std::string> commands, int errorCode)
     {
         Task newTask(clientID, priority, capacity, commands, errorCode);
         storage[newTask.taskID] = newTask;
         assignWorker(newTask);
         intiateTask(newTask);
+        std::cout<<"Task "<< newTask.taskID <<" created , workedId assigned: "<<newTask.workerID<<std::endl;
+        return newTask.taskID;
     }
 
     void intiateTask(Task task)
@@ -136,7 +142,7 @@ public:
         {
             if (storage.find(hb.taskID) != storage.end())
             {
-                Task task = storage[hb.taskID];
+                Task& task = storage[hb.taskID];
                 task.taskStatus = hb.status;
 
                 // assuming they will send 0 for success scenario
@@ -167,8 +173,11 @@ public:
     {
         // TODO : add logs
         // when something goes wrong get new workerId for the task
+        std::cout<<"Reassigning task to new worker as there is error in the worker Node"<<std::endl;
+        task.taskStatus = "Error";
         assignWorker(task);
         intiateTask(task);
+        std::cout<<"Reassigned task to new worked node "<<task.workerID<<std::endl;
     }
 };
 
@@ -185,6 +194,14 @@ int main()
 
     // Simulate task error
     // plm.handleTaskError("Worker3", "Task2");
+
+     // Simulate  Node failure condition ( reassign task to new workerId using Scheduler) 
+    // std::vector<std::string> commands = {"command1", "command2"};
+    // std::string result = plm.createTask("Client1", 1, 10, commands, 0);
+
+    // // Simulate task failure
+    // std::vector<HeartBeat> heartbeats = {{result, "Failed", 1}};
+    // plm.updateBasedOnHeartBeats(heartbeats);
 
     return 0;
 }
